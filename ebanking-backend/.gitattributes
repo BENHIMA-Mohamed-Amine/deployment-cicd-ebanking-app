@@ -1,0 +1,14 @@
+# Force Unix-style LF endings for the Maven wrapper script
+/mvnw text eol=lf
+
+# Force Windows-style CRLF endings for the Maven wrapper batch script
+/mvnw.cmd text eol=crlf
+
+# Apply CRLF line endings for all Windows batch files
+*.cmd text eol=crlf
+
+# Apply LF line endings for shell scripts
+*.sh text eol=lf
+
+# Normalize all other text files automatically
+* text=auto

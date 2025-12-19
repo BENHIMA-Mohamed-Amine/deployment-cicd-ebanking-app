@@ -1,0 +1,46 @@
+services:
+  # 1. Database
+  mysql-db:
+    image: mysql:8.0
+    container_name: ebank-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: e-bank
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ebank-net
+
+  # 2. Backend API
+  backend:
+    build: ./ebanking-backend
+    container_name: ebank-backend
+    ports:
+      - "8085:8085"
+    environment:
+      # We override the localhost URL to point to the docker service name 'mysql-db'
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/e-bank?createDatabaseIfNotExist=true
+    depends_on:
+      - mysql-db
+    networks:
+      - ebank-net
+
+  # 3. Frontend UI
+  frontend:
+    build: ./ebanking-frontend
+    container_name: ebank-frontend
+    ports:
+      - "4200:80" # Map host port 4200 to container Nginx port 80
+    depends_on:
+      - backend
+    networks:
+      - ebank-net
+
+volumes:
+  mysql_data:
+
+networks:
+  ebank-net:
+    driver: bridge
