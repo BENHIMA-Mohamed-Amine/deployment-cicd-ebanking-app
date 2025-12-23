@@ -1,0 +1,68 @@
+name: CI/CD Production Pipeline
+
+on:
+  push:
+    branches: [ "main" ]  # Triggers whenever you push to main
+  workflow_dispatch:      # Allows you to click a button to run manually
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1: INTEGRATION (Test the code)
+  # ------------------------------------------------------------------
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: 🧪 Run Backend Tests
+        # CHANGE 'ebank-backend' to your actual backend folder name if different
+        working-directory: ./ebank-backend 
+        run: mvn test
+
+  # ------------------------------------------------------------------
+  # JOB 2: DEPLOYMENT (Update the VM)
+  # ------------------------------------------------------------------
+  deploy-to-azure:
+    needs: test-backend  # Waits for tests to pass
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            echo "--------------------------------------------------"
+            echo "🎉 Connecting to Azure VM..."
+            
+            # 1. Go to the project directory
+            cd ${{ secrets.PROJECT_PATH }} || exit
+            
+            # 2. Get the latest code
+            echo "📥 Pulling latest code from GitHub..."
+            git pull origin main
+            
+            # 3. Clean up old containers/images (Your requested command)
+            echo "🧹 Cleaning up old resources..."
+            sudo docker compose down --rmi local
+            
+            # 4. Rebuild and start everything
+            echo "🏗️ Building and Starting services..."
+            sudo docker compose up -d
+            
+            # 5. Fix Prometheus config reload
+            echo "🔄 Restarting Prometheus..."
+            sudo docker restart prometheus
+            
+            echo "--------------------------------------------------"
+            echo "✅ DEPLOYMENT SUCCESSFUL"
