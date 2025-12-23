@@ -55,7 +55,7 @@ The E-Banking Application is a full-stack web application designed to manage cus
 - **Account Management**:
   - Search accounts by ID to view balance and transaction history.
   - Perform debit, credit, and transfer operations with form inputs for amount, description, and destination account (for transfers).
-  - Paginated transaction history display.
+  - Paginated transaction history display. 
 - **Authentication**:
   - Login page to authenticate users and obtain JWT tokens.
   - Logout functionality to clear tokens and redirect to login.
