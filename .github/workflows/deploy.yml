@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: 'temurin' 
           cache: maven
 
       - name: 🧪 Run Backend Tests
