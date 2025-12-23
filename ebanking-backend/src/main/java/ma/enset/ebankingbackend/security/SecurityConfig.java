@@ -56,10 +56,18 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
-                //.httpBasic(Customizer.withDefaults())
                 .oauth2ResourceServer(oa -> oa.jwt(Customizer.withDefaults()))
-                .authorizeHttpRequests(ar-> ar.requestMatchers("/auth/login/**").permitAll())
-                .authorizeHttpRequests(ar -> ar.anyRequest().authenticated())
+
+                // --- THE FIX STARTS HERE ---
+                .authorizeHttpRequests(ar -> ar
+                        // Allow Login
+                        .requestMatchers("/auth/login/**").permitAll()
+                        // Allow Prometheus & Health checks
+                        .requestMatchers("/actuator/**").permitAll()
+                        // Lock everything else
+                        .anyRequest().authenticated())
+                // --- THE FIX ENDS HERE ---
+
                 .build();
     }
 

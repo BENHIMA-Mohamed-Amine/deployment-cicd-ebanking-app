@@ -1,4 +1,82 @@
+version: '3.8'
+
 services:
+  # ==========================================
+  # LOGGING STACK (Loki, Promtail, Grafana)
+  # ==========================================
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      # Config from your existing loki_stack folder
+      - ./loki_stack/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      # Data mapped to your local volumes folder
+      - ./volumes/loki:/loki
+    command: -config.file=/etc/loki/loki-config.yml
+    restart: unless-stopped
+    networks:
+      - ebank-net
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    volumes:
+      # Config from your existing loki_stack folder
+      - ./loki_stack/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      # Docker socket and system logs for scraping
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - ebank-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      # Data mapped to your local volumes folder
+      - ./volumes/grafana:/var/lib/grafana
+      # Provisioning from your existing loki_stack folder
+      - ./loki_stack/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - ebank-net
+
+# Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      # Config file we just created
+      - ./loki_stack/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      # Persistent data storage (using your local volumes folder)
+      - ./volumes/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    restart: unless-stopped
+    networks:
+      - ebank-net
+
+  # ==========================================
+  # APPLICATION STACK (E-Bank)
+  # ==========================================
+  
   # 1. Database
   mysql-db:
     image: mysql:8.0
@@ -12,6 +90,15 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - ebank-net
+    labels:
+      logging: "promtail"
+      logging_jobname: "mysql-db"
+    # ADD THIS BLOCK
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # 2. Backend API
   backend:
@@ -20,27 +107,37 @@ services:
     ports:
       - "8085:8085"
     environment:
-      # We override the localhost URL to point to the docker service name 'mysql-db'
+      # This overrides your application.properties localhost setting
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/e-bank?createDatabaseIfNotExist=true
     depends_on:
-      - mysql-db
+      mysql-db:
+        condition: service_healthy # <--- Crucial Change
     networks:
       - ebank-net
+    labels:
+      logging: "promtail"
+      logging_jobname: "backend-api"
+    restart: on-failure # Restarts if it crashes despite the check
 
   # 3. Frontend UI
   frontend:
     build: ./ebanking-frontend
     container_name: ebank-frontend
     ports:
-      - "4200:80" # Map host port 4200 to container Nginx port 80
+      - "4200:80"
     depends_on:
       - backend
     networks:
       - ebank-net
-
-volumes:
-  mysql_data:
+    labels:
+      logging: "promtail"
+      logging_jobname: "frontend-ui"
 
 networks:
   ebank-net:
     driver: bridge
+
+volumes:
+  mysql_data:
+  # Loki and Grafana volumes are removed from here 
+  # because they now map to your local ./volumes/ folder directly.
