@@ -24,7 +24,7 @@ jobs:
 
       - name: 🧪 Run Backend Tests
         # CHANGE 'ebank-backend' to your actual backend folder name if different
-        working-directory: ./ebank-backend 
+        working-directory: /ebank-backend 
         run: mvn test
 
   # ------------------------------------------------------------------
