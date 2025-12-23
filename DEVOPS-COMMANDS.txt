@@ -1,0 +1,10 @@
+{job="backend-api"}
+{job="backend-api"}
+{job="mysql-db"}
+{job=~".+"}
+
+prometheus:
+http://prometheus:9090
+system_cpu_usage
+jvm_memory_used_bytes
+http_server_requests_seconds_count
